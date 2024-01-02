@@ -39,7 +39,7 @@ impl Gacha {
         let mut rng = ThreadRng::default();
         (self.pulls, self.u5c_pity, self.u4c_pity) =
             (self.pulls + 1, self.u5c_pity + 1, self.u4c_pity + 1);
-        if rng.gen_range(1..=10000) < U5C_W[self.u5c_pity - 1] {
+        if rng.gen_range(1..=10000) <= U5C_W[self.u5c_pity - 1] {
             match (self.u5c_guar, rng.gen_range(1..=10000)) {
                 (0, 1..=5000) | (1, _) => {
                     println!("  UP CHAR {:4} {:4}", self.pulls, self.u5c_pity);
@@ -51,7 +51,7 @@ impl Gacha {
                 }
             }
             (self.stars, self.u5c_pity) = (self.stars + 5, 0);
-        } else if self.u4c_pity >= 10 || rng.gen_range(1..=10000) < U4C_W[self.u4c_pity - 1] {
+        } else if self.u4c_pity >= 10 || rng.gen_range(1..=10000) <= U4C_W[self.u4c_pity - 1] {
             (self.stars, self.u4c_pity) = (self.stars + 2, 0);
         }
         self
@@ -61,7 +61,7 @@ impl Gacha {
         let mut rng = ThreadRng::default();
         (self.pulls, self.u5w_pity, self.u4w_pity) =
             (self.pulls + 1, self.u5w_pity + 1, self.u4w_pity + 1);
-        if rng.gen_range(1..=10000) < U5W_W[self.u5w_pity - 1] {
+        if rng.gen_range(1..=10000) <= U5W_W[self.u5w_pity - 1] {
             match (self.u5w_guar, rng.gen_range(1..=10000)) {
                 (0, 1..=3750) | (1, 1..=5000) | (2, _) => {
                     println!("  UP WEAP {:4} {:4}", self.pulls, self.u5w_pity);
@@ -73,7 +73,7 @@ impl Gacha {
                 }
             }
             (self.stars, self.u5w_pity) = (self.stars + 5, 0);
-        } else if self.u4w_pity >= 10 || rng.gen_range(1..=10000) < U4W_W[self.u4w_pity - 1] {
+        } else if self.u4w_pity >= 10 || rng.gen_range(1..=10000) <= U4W_W[self.u4w_pity - 1] {
             (self.stars, self.u4w_pity) = (self.stars + 2, 0);
         }
         self
