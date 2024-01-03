@@ -1,3 +1,4 @@
+use clap::Parser;
 use rand::{rngs::ThreadRng, Rng};
 
 const U5C_W: [i32; 90] = [
@@ -26,12 +27,17 @@ pub struct Gacha {
     pub weaps_up: usize,   // 5 star weapons up
     pub weaps_down: usize, // 5 star weapons down
     // states
-    u5c_pity: usize, // Up 5 star character pity
-    u5c_guar: usize, // Up 5 star up character guarantees
-    u4c_pity: usize, // Up 4 star character pity
-    u5w_pity: usize, // Up 5 star weapon pity
-    u5w_guar: usize, // Up 5 star up weapon guarantees
-    u4w_pity: usize, // Up 4 star weapon pity
+    pub u5c_pity: usize, // Up 5 star character pity
+    pub u5c_guar: usize, // Up 5 star up character guarantees
+    pub u4c_pity: usize, // Up 4 star character pity
+    pub u5w_pity: usize, // Up 5 star weapon pity
+    pub u5w_guar: usize, // Up 5 star up weapon guarantees
+    pub u4w_pity: usize, // Up 4 star weapon pity
+    // events
+    pub on_chars_up: Option<fn(&Gacha) -> ()>, // 5 star character up event
+    pub on_chars_down: Option<fn(&Gacha) -> ()>, // 5 star character down event
+    pub on_weaps_up: Option<fn(&Gacha) -> ()>, // 5 star weapon up event
+    pub on_weaps_down: Option<fn(&Gacha) -> ()>, // 5 star weapon down event
 }
 
 impl Gacha {
@@ -42,11 +48,15 @@ impl Gacha {
         if rng.gen_range(1..=10000) <= U5C_W[self.u5c_pity - 1] {
             match (self.u5c_guar, rng.gen_range(1..=10000)) {
                 (0, 1..=5000) | (1, _) => {
-                    println!("  UP CHAR {:4} {:4}", self.pulls, self.u5c_pity);
+                    if let Some(on_event) = self.on_chars_up {
+                        on_event(&self)
+                    }
                     (self.chars_up, self.u5c_guar) = (self.chars_up + 1, 0);
                 }
                 (_, _) => {
-                    println!("DOWN CHAR {:4} {:4}", self.pulls, self.u5c_pity);
+                    if let Some(on_event) = self.on_chars_down {
+                        on_event(&self)
+                    }
                     (self.chars_down, self.u5c_guar) = (self.chars_down + 1, self.u5c_guar + 1);
                 }
             }
@@ -64,11 +74,15 @@ impl Gacha {
         if rng.gen_range(1..=10000) <= U5W_W[self.u5w_pity - 1] {
             match (self.u5w_guar, rng.gen_range(1..=10000)) {
                 (0, 1..=3750) | (1, 1..=5000) | (2, _) => {
-                    println!("  UP WEAP {:4} {:4}", self.pulls, self.u5w_pity);
+                    if let Some(on_event) = self.on_weaps_up {
+                        on_event(&self)
+                    }
                     (self.weaps_up, self.u5w_guar) = (self.weaps_up + 1, 0);
                 }
                 (_, _) => {
-                    println!("DOWN WEAP {:4} {:4}", self.pulls, self.u5w_pity);
+                    if let Some(on_event) = self.on_weaps_down {
+                        on_event(&self)
+                    }
                     (self.weaps_down, self.u5w_guar) = (self.weaps_down + 1, self.u5w_guar + 1);
                 }
             }
@@ -134,7 +148,52 @@ impl Gacha {
     }
 }
 
+/// Genshin Impact Gacha Simulator
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// Gacha times
+    #[arg(short, long, default_value_t = 1)]
+    times: usize,
+    /// 5 star characters up
+    #[arg(short, long, default_value_t = 1)]
+    chars_up: usize,
+    /// 5 star character pity
+    #[arg(short = 'C', long, default_value_t = 0)]
+    char_pity: usize,
+    /// 5 star weapons up
+    #[arg(short, long, default_value_t = 0)]
+    weaps_up: usize,
+    /// 5 star weapon pity
+    #[arg(short = 'W', long, default_value_t = 0)]
+    weap_pity: usize,
+    /// Verbose mode
+    #[arg(short, long, default_value_t = false)]
+    verbose: bool,
+}
+
 fn main() {
-    let gacha = Gacha::default().with_pity(58, 13).pull_up(3, 1);
-    println!("PULL {:4} STAR {:4}", gacha.pulls, gacha.stars);
+    let args = Args::parse();
+
+    let mut gacha = Gacha::default().with_pity(args.char_pity, args.weap_pity);
+    if args.verbose {
+        gacha.on_chars_up = Some(|gacha: &Gacha| {
+            println!("  UP CHAR {:4} {:4}", gacha.pulls, gacha.u5c_pity);
+        });
+        gacha.on_chars_down = Some(|gacha: &Gacha| {
+            println!("DOWN CHAR {:4} {:4}", gacha.pulls, gacha.u5c_pity);
+        });
+        gacha.on_weaps_up = Some(|gacha: &Gacha| {
+            println!("  UP WEAP {:4} {:4}", gacha.pulls, gacha.u5w_pity);
+        });
+        gacha.on_weaps_down = Some(|gacha: &Gacha| {
+            println!("DOWN WEAP {:4} {:4}", gacha.pulls, gacha.u5w_pity);
+        });
+    }
+
+    let mut sum = 0;
+    for _ in 1..=args.times {
+        sum += gacha.pull_up(args.chars_up, args.weaps_up).pulls;
+    }
+    println!("{:.2}", sum as f64 / args.times as f64);
 }
