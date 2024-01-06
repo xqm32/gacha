@@ -20,8 +20,8 @@ const U4W_W: [i32; 10] = [600, 600, 600, 600, 600, 600, 600, 6600, 12600, 18600]
 #[derive(Debug, Default, Clone, Copy)]
 pub struct Gacha {
     // records
-    pub pulls: usize,      // intertwined fates
-    pub stars: usize,      // starglitters
+    pub pulls: usize,      // Intertwined fates
+    pub stars: usize,      // Starglitters
     pub chars_up: usize,   // 5 star characters up
     pub chars_down: usize, // 5 star characters down
     pub weaps_up: usize,   // 5 star weapons up
@@ -32,12 +32,14 @@ pub struct Gacha {
     pub u4c_pity: usize, // Up 4 star character pity
     pub u5w_pity: usize, // Up 5 star weapon pity
     pub u5w_guar: usize, // Up 5 star up weapon guarantees
+    pub u5w_fate: usize, // Up 5 star weapon fate
     pub u4w_pity: usize, // Up 4 star weapon pity
     // events
-    pub on_chars_up: Option<fn(&Gacha) -> ()>, // 5 star character up event
-    pub on_chars_down: Option<fn(&Gacha) -> ()>, // 5 star character down event
-    pub on_weaps_up: Option<fn(&Gacha) -> ()>, // 5 star weapon up event
-    pub on_weaps_down: Option<fn(&Gacha) -> ()>, // 5 star weapon down event
+    pub on_char_up: Option<fn(&Gacha) -> ()>, // 5 star character up event
+    pub on_char_down: Option<fn(&Gacha) -> ()>, // 5 star character down event
+    pub on_weap_up: Option<fn(&Gacha) -> ()>, // 5 star weapon up event
+    pub on_another_weap_up: Option<fn(&Gacha) -> ()>, // Another 5 star weapon up event
+    pub on_weap_down: Option<fn(&Gacha) -> ()>, // 5 star weapon down event
 }
 
 impl Gacha {
@@ -48,13 +50,13 @@ impl Gacha {
         if rng.gen_range(1..=10000) <= U5C_W[self.u5c_pity - 1] {
             match (self.u5c_guar, rng.gen_range(1..=10000)) {
                 (0, 1..=5000) | (1, _) => {
-                    if let Some(on_event) = self.on_chars_up {
+                    if let Some(on_event) = self.on_char_up {
                         on_event(&self)
                     }
                     (self.chars_up, self.u5c_guar) = (self.chars_up + 1, 0);
                 }
                 (_, _) => {
-                    if let Some(on_event) = self.on_chars_down {
+                    if let Some(on_event) = self.on_char_down {
                         on_event(&self)
                     }
                     (self.chars_down, self.u5c_guar) = (self.chars_down + 1, self.u5c_guar + 1);
@@ -72,18 +74,26 @@ impl Gacha {
         (self.pulls, self.u5w_pity, self.u4w_pity) =
             (self.pulls + 1, self.u5w_pity + 1, self.u4w_pity + 1);
         if rng.gen_range(1..=10000) <= U5W_W[self.u5w_pity - 1] {
-            match (self.u5w_guar, rng.gen_range(1..=10000)) {
-                (0, 1..=3750) | (1, 1..=5000) | (2, _) => {
-                    if let Some(on_event) = self.on_weaps_up {
+            match (self.u5w_guar, rng.gen_range(1..=10000), self.u5w_fate) {
+                (0, 1..=3750, _) | (1, 1..=5000, _) | (_, _, 2) => {
+                    if let Some(on_event) = self.on_weap_up {
                         on_event(&self)
                     }
-                    (self.weaps_up, self.u5w_guar) = (self.weaps_up + 1, 0);
+                    (self.weaps_up, self.u5w_guar, self.u5w_fate) = (self.weaps_up + 1, 0, 0);
                 }
-                (_, _) => {
-                    if let Some(on_event) = self.on_weaps_down {
+                (0, 3751..=7500, _) | (1, 5001..=10000, _) => {
+                    if let Some(on_event) = self.on_another_weap_up {
                         on_event(&self)
                     }
-                    (self.weaps_down, self.u5w_guar) = (self.weaps_down + 1, self.u5w_guar + 1);
+                    (self.weaps_down, self.u5w_guar, self.u5w_fate) =
+                        (self.weaps_down + 1, 0, self.u5w_fate + 1);
+                }
+                _ => {
+                    if let Some(on_event) = self.on_weap_down {
+                        on_event(&self)
+                    }
+                    (self.weaps_down, self.u5w_guar, self.u5w_fate) =
+                        (self.weaps_down + 1, self.u5w_guar + 1, self.u5w_fate + 1);
                 }
             }
             (self.stars, self.u5w_pity) = (self.stars + 5, 0);
@@ -177,16 +187,19 @@ fn main() {
 
     let mut gacha = Gacha::default().with_pity(args.char_pity, args.weap_pity);
     if args.verbose {
-        gacha.on_chars_up = Some(|gacha: &Gacha| {
+        gacha.on_char_up = Some(|gacha: &Gacha| {
             println!("  UP CHAR {:4} {:4}", gacha.pulls, gacha.u5c_pity);
         });
-        gacha.on_chars_down = Some(|gacha: &Gacha| {
+        gacha.on_char_down = Some(|gacha: &Gacha| {
             println!("DOWN CHAR {:4} {:4}", gacha.pulls, gacha.u5c_pity);
         });
-        gacha.on_weaps_up = Some(|gacha: &Gacha| {
+        gacha.on_weap_up = Some(|gacha: &Gacha| {
             println!("  UP WEAP {:4} {:4}", gacha.pulls, gacha.u5w_pity);
         });
-        gacha.on_weaps_down = Some(|gacha: &Gacha| {
+        gacha.on_another_weap_up = Some(|gacha: &Gacha| {
+            println!("ANOT WEAP {:4} {:4}", gacha.pulls, gacha.u5w_pity);
+        });
+        gacha.on_weap_down = Some(|gacha: &Gacha| {
             println!("DOWN WEAP {:4} {:4}", gacha.pulls, gacha.u5w_pity);
         });
     }
