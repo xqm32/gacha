@@ -207,6 +207,9 @@ fn main() {
     let mut sum = 0;
     for _ in 1..=args.times {
         sum += gacha.pull_up(args.chars_up, args.weaps_up).pulls;
+        if args.verbose {
+            println!();
+        }
     }
     println!("{:.2}", sum as f64 / args.times as f64);
 }
